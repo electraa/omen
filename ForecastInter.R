@@ -1,4 +1,4 @@
-#   Last Update: 15/04/2015 17:50
+#   Last Update: 29/06/2018 16:50
 #   ForecastTS - Produce forecast model and forecasts for a timeseries
 #   Requires InSample, Periods per Year, ForecastHorizon, Method (Naive,Optimal,ETS,MAPA,Theta)
 #   Output$Method -- Returns the method used for forecasting
