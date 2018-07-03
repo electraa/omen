@@ -1,0 +1,368 @@
+---
+output: 
+  html_document:
+    self_contained: no
+---
+#Omen:
+
+###Imported file:
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+library(pander)
+    inputcsv<-upx()
+
+ s = c("January","February","March","April","May","June","July","August","September","October","November","December")
+
+inp<-upx()
+colnames(inp)<-c("date","val")
+tab<-matrix(inp$val, ncol=12, nrow=length(inp$val)/12)
+tab<-as.data.frame(tab)
+colnames(tab)<-s
+panderOptions("digits", 2)
+pander(tab)
+```
+###Statistics:
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+    FirstYear<-as.numeric(substr(as.character(dateinput()[2]),1,4))
+    FirstMonth<-as.numeric(substr(as.character(dateinput()[2]),6,7))
+    FirstForecast <-100*FirstYear+FirstMonth #Get first forecast
+    insample <- ts(upx()$QTY[upx()$Date<FirstForecast],frequency=fileppy())
+    
+```
+**Mean:** `r round(mean(insample, na.rm=T),2) `  
+**Median:** `r round(median(insample, na.rm=T),2)`  
+**Standard Deviation:** `r round(sd(insample, na.rm=T),2)`  
+**Coefficient of Variation:** `r paste0(round(((sd(insample, na.rm=T)/mean(insample, na.rm=T))*100),2),"%") `  
+**Variance:** `r  round(var(insample, na.rm=T),2)`  
+**Linear Correlation Coefficient:** `r round(cor(1:length(insample),insample),2)`  
+**ACF Plot**
+```{r statplot, echo=FALSE, warning=FALSE, message=FALSE}
+    library("ggplot2")
+    datacf<-as.data.frame(acf(insample, plot=F,na.action=na.pass)$acf)
+    colnames(datacf)<-"acf"
+    datacf$Observations<-as.numeric(row.names(datacf))
+    datacf<-datacf[-c(1), ]
+    ggplot(data=datacf, aes(x=Observations,y=acf, fill=acf))+ geom_bar(stat="identity") +scale_fill_gradient(low="#b6daed",high="#00527f")+ theme_bw() +
+    theme(legend.position="bottom")
+```
+
+
+ **PACF Plot**  
+```{r statplotb, echo=FALSE, warning=FALSE, message=FALSE}
+     library("ggplot2")
+    datapacf<-as.data.frame(pacf(insample, plot=F,na.action=na.pass)$acf)
+    colnames(datapacf)<-"pacf"
+    datapacf$Observations<-as.numeric(row.names(datapacf))
+    datapacf<-datapacf[-c(1), ]
+    ggplot(data=datapacf, aes(x=Observations,y=pacf, fill=pacf))+ geom_bar(stat="identity") +scale_fill_gradient(low="#b6daed",high="#00527f")+theme_bw() +
+    theme(legend.position="bottom")
+```
+
+
+###Outliers
+```{r outblock, echo=FALSE, warning=FALSE, message=FALSE}
+
+    datatable<-OutliersTable1()[,c("Original Timeseries","Adjusted Timeseries")]
+
+```
+
+
+```{r outplot, echo=FALSE, warning=FALSE, message=FALSE}
+    library("ggplot2")
+data2<-datatable
+data2$index=1:nrow(datatable)
+ datamelt<-melt(data2, id="index")
+    ggplot(data=datamelt, aes(x=index, y=value, colour=variable))+geom_line()+ theme_bw()+scale_colour_brewer(palette="YlGnBu") +
+    theme(legend.position="bottom")
+
+
+```
+
+
+###Decompose
+```{r decompos, echo=FALSE, warning=FALSE, message=FALSE}
+
+    seasondata<-Decomposition()
+    seasondata<-seasondata[,c('Randomness',"Cyrcle","Trend","Seasonality")]
+    seasondata$Index<-as.numeric(row.names(seasondata))
+   # seasondata<-melt(seasondata, id="Index")
+    Randomness<- ggplot(data=seasondata, aes(x=Index, y=Randomness))+geom_line()+ theme_bw() +
+    theme(legend.position="bottom")
+    Cyrcle<-ggplot(data=seasondata, aes(x=Index, y=Cyrcle))+geom_line()+ theme_bw() +
+    theme(legend.position="bottom")
+    Trend<- ggplot(data=seasondata, aes(x=Index, y=Trend))+geom_line()+ theme_bw() +
+    theme(legend.position="bottom")
+    Seasonality<- ggplot(data=seasondata, aes(x=Index, y=Seasonality))+geom_line()+ theme_bw() +
+    theme(legend.position="bottom")
+    # 
+    
+        data<-Decomposition()$LE
+    if (input$removeoutliersdec==F){
+      indata<-upx()
+      indata[is.na(indata)] <- 0 
+      FirstYear<-as.numeric(substr(as.character(dateinput()[2]),1,4))
+      FirstMonth<-as.numeric(substr(as.character(dateinput()[2]),6,7))
+      FirstForecast <-100*FirstYear+FirstMonth #Get first forecast
+      InSample <- ts(indata$QTY[indata$Date<FirstForecast])
+      InSample[is.na(InSample)] <- 0
+    }else{
+      InSample<-(OutliersTable1()[,c("Adjusted Timeseries")])
+    }
+    
+    ppy=input$decfr
+    if (ppy=='Unknown')
+      ppy = findppy(InSample)
+    ppy<-as.numeric(ppy)
+    max <- ppy
+    
+    x <- seq_along(data)
+    dataLE <- split(data, ceiling(x/max))
+    dataLE <- as.data.frame(dataLE)
+    dataLE$Observations<-as.numeric(row.names(dataLE))
+    simsubmelt = melt(dataLE,id="Observations")
+    Seasonplot<- ggplot(data=simsubmelt, aes(x=Observations, y=value, colour=variable))+geom_line()+ theme_bw() +
+    theme(legend.position="bottom")
+
+```
+#####Randomness
+```{r rand, echo=FALSE, warning=FALSE, message=FALSE}
+Randomness
+```
+
+#####Cycle
+```{r cyr, echo=FALSE, warning=FALSE, message=FALSE}
+Cyrcle
+```
+
+#####Trend
+```{r tren, echo=FALSE, warning=FALSE, message=FALSE}
+Trend
+```
+
+#####Seasonality
+```{r seasss, echo=FALSE, warning=FALSE, message=FALSE}
+Seasonality
+```
+
+#####Seasonplot
+```{r trf, echo=FALSE, warning=FALSE, message=FALSE}
+Seasonplot
+```
+
+###Smoothing
+
+#####Chosen Smoothing Method: `r input$smoothmethodin `  
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+    dataaa<-as.data.frame(smbplot())
+   # dataaa$original<-insample
+    dataaa$Observations<-as.numeric(row.names(dataaa))
+   # colnames(dataaa)<-c("Smooth","Original","Observations")
+    smoothmelt<- melt(dataaa,id="Observations")
+    ggplot(data=smoothmelt, aes(x=Observations, y=value, colour=variable))+geom_line()+scale_colour_brewer(palette="Set1") + theme_bw() +
+    theme(legend.position="bottom")
+```
+
+###Temporal Aggregation
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+    data<-taggdata()
+data$Observations<-1:nrow(data)
+    simsubmelt = melt(data,id="Observations")
+    ggplot( data = simsubmelt, aes(x=Observations, y = value, colour = variable))+geom_line()+scale_colour_brewer(palette="YlGnBu") + theme_bw() +
+    theme(legend.position="bottom")
+
+```
+
+###Forecasts
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+    datatable<-FinalTable()
+    colnames(datatable)[colnames(datatable)=="Date"] <- "TimeStamp"
+    colnames(datatable)[colnames(datatable)=="qvalue"] <- "Value"
+    colnames(datatable)[colnames(datatable)=="qvaluec"] <- "Value Deseasonalized"
+    colnames(datatable)[colnames(datatable)=="fqvalueb"] <- "Value Forecast"
+    simsub=datatable
+    
+    
+    
+    # #Add Confidence Levels
+     if (input$clin!="none"){
+       TSSY<-as.numeric(substr(as.character(dateinput()[2]),1,4))
+       TSSM<- as.numeric(substr(as.character(dateinput()[2]),6,7))
+       qtycl1a<-ts(forecastQTYe()$CL1,frequency=fileppy(),start = c(as.numeric(TSSY),as.numeric(TSSM)))
+       qtycl1.m<- data.frame(yr=round(time(qtycl1a), digits = 2),qtycl1=as.matrix(qtycl1a))
+       datatable<-merge(datatable,qtycl1.m,by = "yr", all=TRUE)
+       qtycl2a<-ts(forecastQTYe()$CL2,frequency=fileppy(),start = c(as.numeric(TSSY),as.numeric(TSSM)))
+       qtycl2.m<- data.frame(yr=round(time(qtycl2a), digits = 2),qtycl2=as.matrix(qtycl2a))
+       datatable<-merge(datatable,qtycl2.m,by = "yr", all=TRUE)
+       colnames(datatable)[colnames(datatable)=="qtycl1"] <- "Confidence Level 1"
+       colnames(datatable)[colnames(datatable)=="qtycl2"] <- "Confidence Level 2"}
+    simsub=datatable
+    
+     simsub$ID<-1:nrow(simsub)
+    preparation<-smbplot()
+    if (input$considersmoothing==F) #if smoothing is FALSE ignore last column
+      preparation<-preparation[,1:(ncol(preparation)-1)]
+    preparation$ID<-1:nrow(preparation)
+    simsub<- merge(simsub,preparation, by="ID", all=TRUE)
+    if (input$considersmoothing==T){
+      level<-chartr("012345678", "ABCDEFGHI", ncol(smbplot()))
+      colnames(simsub)[colnames(simsub)=="Value Forecast"] <- paste0(level, ". Value Forecast")
+      if (input$clin!="none"){
+        level1<-chartr("012345678", "ABCDEFGHI", ncol(smbplot())+1)
+        colnames(simsub)[colnames(simsub)=="Confidence Level 1"] <- paste0(level1, ". Confidence Level 1")
+        
+        level2<-chartr("012345678", "ABCDEFGHI", ncol(smbplot())+2)
+        colnames(simsub)[colnames(simsub)=="Confidence Level 2"] <- paste0(level2, ". Confidence Level 2")
+        
+        simsub<-simsub[,c(c("DatePlot",paste0(level, ". Value Forecast"),paste0(level1, ". Confidence Level 1"),paste0(level2, ". Confidence Level 2")),colnames(smbplot()))]
+        
+      }else {
+        simsub<-simsub[,c(c("DatePlot",paste0(level, ". Value Forecast")),colnames(smbplot()))]
+      }
+       
+    } else {
+      level<-chartr("012345678", "ABCDEFGHI", ncol(smbplot())-1)
+  
+      colnames(simsub)[colnames(simsub)=="Value Forecast"] <- paste0(level, ". Value Forecast")
+      
+      if (input$clin!="none"){
+        level1<-chartr("012345678", "ABCDEFGHI", ncol(smbplot()))
+        colnames(simsub)[colnames(simsub)=="Confidence Level 1"] <- paste0(level1, ". Confidence Level 1")
+        
+        level2<-chartr("012345678", "ABCDEFGHI", ncol(smbplot())+1)
+        colnames(simsub)[colnames(simsub)=="Confidence Level 2"] <- paste0(level2, ". Confidence Level 2")
+        
+        simsub<-simsub[,c(c("DatePlot",paste0(level, ". Value Forecast"),paste0(level1, ". Confidence Level 1"),paste0(level2, ". Confidence Level 2")),colnames(smbplot()[1:(ncol(smbplot())-1)]))]
+        
+      }else {
+        simsub<-simsub[,c(c("DatePlot",paste0(level, ". Value Forecast")),colnames(smbplot()[1:(ncol(smbplot())-1)]))]
+      }
+      
+      
+    }
+    simsubmelt = melt(simsub,id="DatePlot")
+    ggplot(data=simsubmelt, aes(x=DatePlot, y=value, colour=variable))+geom_line()+scale_colour_brewer(palette="Set1") + theme_bw() +
+    theme(legend.position="bottom")
+
+```
+###Judgemental Adjustments
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+    jdata<-as.data.frame(judgedata())
+    jdata$Point<-1:nrow(jdata)
+    jsubmelt = melt(jdata, id="Point")
+    ggplot(data=jsubmelt, aes(x=Point, y=value, colour=variable))+geom_line()+scale_colour_brewer(palette="Set1") + theme_bw() +
+    theme(legend.position="bottom")
+
+
+```
+
+
+###Errors
+
+####Insample-Forecast Model Errors
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+library(pander)
+
+panderOptions("digits", 2)
+pander(errors())
+```
+####Out Of Sample-Forecasts Errors
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+library(pander)
+panderOptions("digits", 2)
+pander(forecasterrors())
+
+```
+####Errors - Visualization
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+    scdata<-data.frame(cbind(head(FinalTable()$fqvalue, length(insample)),head(FinalTable()$qvalue, length(insample))))
+
+    colnames(scdata)<-c("Forecast Model","Insample")
+    scdata$insample2<-scdata$Insample
+    scdatamelt<-melt(scdata,id="Insample")
+    ggplot(scdatamelt, aes(x=Insample, y=value, color=variable)) + geom_point(shape=18)+scale_colour_brewer(palette="Set1")
+
+    error1<-ErrorsCalculation(head(FinalTable()$fqvalue, length(insample)), head(FinalTable()$qvalue, length(insample)))
+    errorqty<-t(error1[[1]])
+    colnames(errorqty)<-c("e","pe","ape","se","sape")
+    scdata<-data.frame(rn=1:length(errorqty[,c("e")]))
+    scdata$error<-errorqty[,c("e")]
+    ggplot(scdata, aes(x=rn, y=error, color=error)) + geom_bar(stat="identity") +
+    theme(legend.position="bottom")
+    
+    FirstYear<-as.numeric(substr(as.character(dateinput()[2]),1,4))
+    FirstMonth<-as.numeric(substr(as.character(dateinput()[2]),6,7))
+    FirstForecast <-100*FirstYear+FirstMonth #Get first forecast
+    
+    insample <- ts(upx()$QTY[upx()$Date<=FirstForecast],frequency=1) 
+    allsample<-ts(upx()$QTY,frequency=1)
+    lengthdfa<-length(allsample)-length(insample)
+    if (lengthdfa>0){
+    if (length(insample)<length(upx()$QTY)) {
+      dfa<-tail(upx()$QTY,as.numeric(lengthdfa))
+    }else{
+      dfa<-NULL
+    }
+    dfb<-finalforecasts()#tail(na.omit(FinalTable()[,c("fqvalue")]),input$horizonin)
+    if (length(na.omit(dfa))>=length(na.omit(dfb))) {
+      yd<-as.numeric(input$horizonin)
+
+    } else{
+      yd<-length(dfa)
+
+    }
+    df1<-as.data.frame(head(dfa,yd))
+    df2<-as.data.frame(head(dfb,yd))
+
+    df1$rn<-1:yd
+    df2$rn<-1:yd
+
+    scdata<-merge(df1,df2,by="rn",all.y=TRUE)
+    # scdata<-na.omit(scdata)
+    colnames(scdata)<-c("rn","Out Of Sample","Forecasts")
+    scdata<-scdata[,c("Out Of Sample","Forecasts")]
+    scdata$OutOfSample<-scdata[,c("Out Of Sample")]
+    scdatamelt<-melt(scdata,id="OutOfSample")
+    ggplot(scdatamelt, aes(x=OutOfSample, y=value, color=variable)) + geom_point(shape=18)+scale_colour_brewer(palette="Set1")
+
+
+     insample <- ts(upx()$QTY[upx()$Date<=FirstForecast],frequency=1)
+    allsample<-ts(upx()$QTY,frequency=1)
+    lengthdfa<-length(allsample)-length(insample)
+    if (length(insample)<length(upx()$QTY)) {
+      dfa<-tail(upx()$QTY,as.numeric(lengthdfa))
+    }else{
+      dfa<-NULL
+    }
+    dfb<-finalforecasts()#tail(na.omit(FinalTable()[,c("fqvalue")]),input$horizonin)
+    if (length(na.omit(dfa))>=length(na.omit(dfb))) {
+      yd<-as.numeric(input$horizonin)
+
+    } else{
+      yd<-length(dfa)
+
+    }
+    df1<-head(dfa,yd)
+    df2<-head(dfb,yd)
+
+    errorqty1a<-ErrorsCalculation(df1, df2)
+
+    errorqty<-t(errorqty1a[[1]])
+    colnames(errorqty)<-c("e","pe","ape","se","sape")
+    scdata<-data.frame(rn=1:length(errorqty[,c("e")]))
+    scdata$error<-errorqty[,c("e")]
+    scdata$zero<-0
+    ggplot(scdata, aes(x=rn, y=error, color=error)) + geom_bar(stat="identity") +
+    theme(legend.position="bottom")
+    texto<-" "
+
+    }else{
+     texto<-"The imported time-series has no out-of-sample data to compare with the forecasts."
+     texto
+   }
+    
+```
+`r print(texto)` 
+
